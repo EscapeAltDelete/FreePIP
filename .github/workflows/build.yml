@@ -1,36 +1,20 @@
-name: Build FreePIP Rootless
-
-on:
-  push:
-    branches: [ main, master ]
-  workflow_dispatch:
+name: Build FreePIP
+on: [push, workflow_dispatch]
 
 jobs:
   build:
     name: Build Rootless
-    # ubuntu-22.04 is required because recent Theos toolchains depend on libtinfo5
-    # which was removed in ubuntu-24.04
     runs-on: ubuntu-22.04
-    
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Theos
-        uses: Randomblock1/theos-action@v1
+      - uses: actions/checkout@v4
+      - uses: Randomblock1/theos-action@v1
         with:
-          theos-src: 'https://github.com/theos/theos'
           theos-sdks: 'https://github.com/theos/sdks'
           theos-sdks-branch: 'master'
-
-      - name: Build Package
-        run: |
+      - run: |
           make clean
-          # Force rootless scheme for NathanLR/Dopamine
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: FreePIP-Rootless-iOS17
+          name: FreePIP-Rootless
           path: packages/*.deb
