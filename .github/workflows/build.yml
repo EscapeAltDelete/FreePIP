@@ -21,26 +21,43 @@ jobs:
           path: theos
           submodules: recursive
 
-      - name: Download SDK
+      - name: Download iOS Toolchain
         run: |
-          curl -L -o sdk.zip https://github.com/theos/sdks/archive/refs/heads/master.zip
-          unzip sdk.zip
+          # Create toolchain directory
+          mkdir -p theos/toolchain/linux/iphone
+          
+          # Download Sam Bingner's iOS Toolchain for Linux (Standard for Theos)
+          curl -L -o toolchain.tar.xz https://github.com/sbingner/llvm-project/releases/download/v10.0.0-1/linux-ios-arm64-10.0.0.tar.xz
+          
+          # Extract it
+          tar -xf toolchain.tar.xz -C theos/toolchain/linux/iphone --strip-components=1
+          rm toolchain.tar.xz
+
+      - name: Download iOS 16.5 SDK
+        run: |
           mkdir -p theos/sdks
-          cp -r sdks-master/iPhoneOS16.5.sdk theos/sdks/
+          # Sparse checkout to save time/bandwidth (only downloads 16.5)
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git sdk_tmp
+          cd sdk_tmp
+          git sparse-checkout set iPhoneOS16.5.sdk
+          mv iPhoneOS16.5.sdk ../theos/sdks/
+          cd ..
+          rm -rf sdk_tmp
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y make perl
+          sudo apt-get install -y make perl xz-utils
 
       - name: Build Package
         run: |
           export THEOS=$PWD/theos
           make clean
-          make package FINALPACKAGE=1
+          # Build strictly for rootless
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FreePIP-Rootless
+          name: FreePIP-Rootless-iOS17
           path: packages/*.deb

@@ -1,4 +1,4 @@
-# Enforce Rootless Scheme for NathanLR/Dopamine
+# Enforce Rootless Scheme
 THEOS_PACKAGE_SCHEME = rootless
 
 INSTALL_TARGET_PROCESSES = SpringBoard
@@ -7,10 +7,10 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = FreePIP
 
-# Use latest SDK, set minimum deployment to iOS 15.0
+# Use latest SDK, target iOS 15.0+ (Required for Rootless)
 TARGET = iphone:clang:latest:15.0
 
-# Rootless only supports 64-bit arm
+# Rootless architectures
 ARCHS = arm64 arm64e
 
 FreePIP_FILES = Tweak.x

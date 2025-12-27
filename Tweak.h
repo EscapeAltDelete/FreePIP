@@ -2,24 +2,21 @@
 @end
 
 @interface SBPIPInteractionController : NSObject
-@property (nonatomic, readonly) UIView *targetView; // iOS 15+ property
--(UIView *)targetView; // Method accessor fallback
+@property (nonatomic, readonly) UIView *targetView;
+-(UIView *)targetView;
 -(void)handlePanGesture:(UIPanGestureRecognizer *)arg1;
 -(void)handlePinchGesture:(UIPinchGestureRecognizer *)arg1;
 -(void)handleRotationGesture:(UIRotationGestureRecognizer *)arg1;
 @end
 
 @interface SBPIPContainerViewController : UIViewController
-// iOS 15+ standard
--(PGPictureInPictureViewController *)contentViewController; 
-// Legacy
--(PGPictureInPictureViewController *)pictureInPictureViewController; 
+-(PGPictureInPictureViewController *)contentViewController; // iOS 15+
+-(PGPictureInPictureViewController *)pictureInPictureViewController; // Legacy
 
-// Gestures
 -(void)_handlePanGesture:(UIPanGestureRecognizer *)arg1;
 -(void)_handleRotationGesture:(UIRotationGestureRecognizer *)arg1;
 -(void)_handlePinchGesture:(UIPinchGestureRecognizer *)arg1;
--(void)handlePanGesture:(UIPanGestureRecognizer *)arg1; // Possible variant
+-(void)handlePanGesture:(UIPanGestureRecognizer *)arg1; 
 
 -(void)setupBorder;
 -(void)handleLongPressGesture:(UILongPressGestureRecognizer *)sender;

@@ -1,6 +1,6 @@
 Package: jp.soh.freepip
 Name: FreePIP
-Version: 0.0.4
+Version: 0.0.5
 Architecture: iphoneos-arm64
 Description: FreePIP is a tweak to un-snap and scale the view of Picture-in-Picture on iOS unlimitedly.
 Maintainer: Soh Satoh

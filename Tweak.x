@@ -2,7 +2,6 @@
 #import <UIKit/UIKit.h>
 #import "Tweak.h"
 
-// Helper to find parent view controller
 #define UIViewParentController(__view) ({ \
         UIResponder *__responder = __view; \
         while ([__responder isKindOfClass:[UIView class]]) \
@@ -12,28 +11,22 @@
 
 static BOOL locked = NO;
 
-// Helper to get the content view safely across versions
 static UIView *getContentView(SBPIPContainerViewController *self) {
     if ([self respondsToSelector:@selector(contentViewController)]) {
-        // iOS 15, 16, 17+
         return self.contentViewController.view;
     }
     if ([self respondsToSelector:@selector(pictureInPictureViewController)]) {
-        // iOS 13, 14
         return self.pictureInPictureViewController.view;
     }
     return nil;
 }
 
-// Helper to get target view from InteractionController
 static UIView *getTargetView(SBPIPInteractionController *self, UIGestureRecognizer *sender) {
     if ([self respondsToSelector:@selector(targetView)])
         return [self targetView];
-    
     return UIViewParentController(sender.view).view;
 }
 
-// Shared Logic
 static void handlePan(UIView *view, UIPanGestureRecognizer *sender) {
     CGPoint translation = [sender translationInView:view];
     view.transform = CGAffineTransformTranslate(view.transform, translation.x, translation.y);
@@ -45,13 +38,12 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     sender.scale = 1.0;
 }
 
-// --- Group: Container Hooks (Always needed for border/loadView) ---
+// --- Group: Container Hooks ---
 %group SBPIPContainerHooks
 %hook SBPIPContainerViewController
 
 -(void)loadView {
     %orig;
-    
     UIView *targetView = getContentView(self);
     if (targetView) {
         UILongPressGestureRecognizer *longPressGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPressGesture:)];
@@ -60,7 +52,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     }
 }
 
-// iOS 13/Legacy Style
+// iOS 13/Legacy
 -(void)_handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
@@ -81,7 +73,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     if(locked) %orig;
 }
 
-// iOS 14+ / Fallback Style
+// iOS 14+ / 17
 -(void)handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
@@ -115,12 +107,11 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     if(!locked) view.layer.borderColor = [UIColor clearColor].CGColor;
     else view.layer.borderColor = [UIColor redColor].CGColor;
 }
-
 %end
-%end // SBPIPContainerHooks
+%end 
 
 
-// --- Group: Interaction Hooks (iOS 14-17 standard) ---
+// --- Group: Interaction Hooks ---
 %group SBPIPInteractionHooks
 %hook SBPIPInteractionController
 
@@ -143,9 +134,8 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
 -(void)handleRotationGesture:(UIRotationGestureRecognizer *)sender {
     if(locked) %orig;
 }
-
 %end
-%end // SBPIPInteractionHooks
+%end
 
 
 %ctor {
@@ -155,3 +145,4 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
         %init(SBPIPInteractionHooks);
     }
 }
+```[[1](https://www.google.com/url?sa=E&q=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fgrounding-api-redirect%2FAUZIYQFXVoIqHxEQTa9FjmnrFd0goe5Mwcc38JEoPckPZejVrJscIZimUklgv6vAL1TU9Ecau5PgtEvZ9vY7ZFHnmgSVw4KgBlhyGa6PHkgBKkptk6pVKOQSbdCk7trKkI9re-88_JL-R7_jVrbjKNQgtAPeqvd5)]
