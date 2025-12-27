@@ -23,21 +23,20 @@ jobs:
 
       - name: Download iOS Toolchain
         run: |
-          # Create toolchain directory
           mkdir -p theos/toolchain/linux/iphone
           
-          # Download L1ghtmann's Toolchain (Correct URL)
-          # This toolchain supports iOS 14+ SDKs and is built for Linux x86_64
-          curl -L -o toolchain.tar.xz https://github.com/L1ghtmann/llvm-project/releases/latest/download/iOSToolchain.tar.xz
+          # Use Kabir Oberai's reliable redirector for the Linux toolchain
+          # This automatically points to a working x86_64 toolchain for iOS
+          curl -L "https://kabiroberai.com/toolchain/download.php?toolchain=ios-linux" -o toolchain.tar.gz
           
           # Extract it
-          tar -xf toolchain.tar.xz -C theos/toolchain/linux/iphone --strip-components=1
-          rm toolchain.tar.xz
+          tar -xf toolchain.tar.gz -C theos/toolchain/linux/iphone --strip-components=1
+          rm toolchain.tar.gz
 
       - name: Download iOS 16.5 SDK
         run: |
           mkdir -p theos/sdks
-          # Sparse checkout to save time/bandwidth
+          # Sparse checkout to save time and bandwidth
           git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git sdk_tmp
           cd sdk_tmp
           git sparse-checkout set iPhoneOS16.5.sdk
