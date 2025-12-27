@@ -1,19 +1,14 @@
-name: Build FreePIP
+name: Build FreePIP Rootless
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
     branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build Tweak
+    name: Build Rootless
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        type: [rootful, rootless]
     
     steps:
       - name: Checkout Code
@@ -26,14 +21,11 @@ jobs:
           path: theos
           submodules: recursive
 
-      - name: Download iOS 16.5 SDK (Compatible with 17)
+      - name: Download SDK
         run: |
           curl -L -o sdk.zip https://github.com/theos/sdks/archive/refs/heads/master.zip
           unzip sdk.zip
           mkdir -p theos/sdks
-          # We move the 16.5 SDK to theos/sdks. 
-          # Note: If a specific iOS 17 SDK is needed, change the URL or folder logic.
-          # Usually 16.5 is sufficient for building 17 tweaks unless specific new headers are needed.
           cp -r sdks-master/iPhoneOS16.5.sdk theos/sdks/
 
       - name: Install Dependencies
@@ -41,29 +33,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y make perl
 
-      - name: Build Rootful
-        if: matrix.type == 'rootful'
+      - name: Build Package
         run: |
           export THEOS=$PWD/theos
-          # Clean previous builds
           make clean
-          # Build standard deb
           make package FINALPACKAGE=1
-          # Rename for clarity
-          mv packages/*.deb packages/FreePIP_Rootful.deb
 
-      - name: Build Rootless
-        if: matrix.type == 'rootless'
-        run: |
-          export THEOS=$PWD/theos
-          make clean
-          # The SCHEME variable tells Theos to use /var/jb paths
-          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
-          # Rename for clarity
-          mv packages/*.deb packages/FreePIP_Rootless.deb
-
-      - name: Upload Artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FreePIP-${{ matrix.type }}
+          name: FreePIP-Rootless
           path: packages/*.deb

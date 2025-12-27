@@ -12,7 +12,7 @@
 
 static BOOL locked = NO;
 
-// Helper to get the content view across iOS versions
+// Helper to get the content view safely across versions
 static UIView *getContentView(SBPIPContainerViewController *self) {
     if ([self respondsToSelector:@selector(contentViewController)]) {
         // iOS 15, 16, 17+
@@ -30,11 +30,10 @@ static UIView *getTargetView(SBPIPInteractionController *self, UIGestureRecogniz
     if ([self respondsToSelector:@selector(targetView)])
         return [self targetView];
     
-    // Fallback logic
     return UIViewParentController(sender.view).view;
 }
 
-// Logic for transformations
+// Shared Logic
 static void handlePan(UIView *view, UIPanGestureRecognizer *sender) {
     CGPoint translation = [sender translationInView:view];
     view.transform = CGAffineTransformTranslate(view.transform, translation.x, translation.y);
@@ -46,7 +45,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     sender.scale = 1.0;
 }
 
-// --- Group: iOS 13 & Legacy / Fallback Container Logic ---
+// --- Group: Container Hooks (Always needed for border/loadView) ---
 %group SBPIPContainerHooks
 %hook SBPIPContainerViewController
 
@@ -61,7 +60,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     }
 }
 
-// iOS 13 Style (Underscored methods)
+// iOS 13/Legacy Style
 -(void)_handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
@@ -82,7 +81,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     if(locked) %orig;
 }
 
-// iOS 14+ Style (if Container handles it directly in newer iOS)
+// iOS 14+ / Fallback Style
 -(void)handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
@@ -103,7 +102,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
 %new
 -(void)handleLongPressGesture:(UILongPressGestureRecognizer *)sender {
     if (sender.state != UIGestureRecognizerStateBegan) return;
-    locked = !locked; // Toggle
+    locked = !locked; 
     [self setupBorder];
 }
 
@@ -121,7 +120,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
 %end // SBPIPContainerHooks
 
 
-// --- Group: iOS 14, 15, 16, 17+ Interaction Controller ---
+// --- Group: Interaction Hooks (iOS 14-17 standard) ---
 %group SBPIPInteractionHooks
 %hook SBPIPInteractionController
 
@@ -150,16 +149,9 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
 
 
 %ctor {
-    NSLog(@"[FreePIP] Loaded");
-
-    // Always init Container hooks as it handles loadView and borders
     %init(SBPIPContainerHooks);
 
-    // Check if SBPIPInteractionController exists (iOS 14+)
     if (objc_getClass("SBPIPInteractionController")) {
-        NSLog(@"[FreePIP] SBPIPInteractionController found, initializing interaction hooks");
         %init(SBPIPInteractionHooks);
-    } else {
-        NSLog(@"[FreePIP] SBPIPInteractionController NOT found, relying on Container hooks");
     }
 }
