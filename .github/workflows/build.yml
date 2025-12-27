@@ -8,7 +8,8 @@ on:
 jobs:
   build:
     name: Build Rootless
-    runs-on: ubuntu-latest
+    # MUST use ubuntu-22.04 because 'libtinfo5' was removed in ubuntu-24.04
+    runs-on: ubuntu-22.04
     
     steps:
       - name: Checkout Code
@@ -17,14 +18,15 @@ jobs:
       - name: Setup Theos
         uses: Randomblock1/theos-action@v1
         with:
-          # This action automatically sets up the Toolchain and SDKs
           theos-src: 'https://github.com/theos/theos'
           theos-sdks: 'https://github.com/theos/sdks'
           theos-sdks-branch: 'master'
 
       - name: Build Package
         run: |
-          # Clean previous builds
+          # Ensure THEOS env var is set correctly for the local action install
+          export THEOS=$GITHUB_WORKSPACE/theos
+          
           make clean
           # Build specifically for rootless (NathanLR/Dopamine)
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless

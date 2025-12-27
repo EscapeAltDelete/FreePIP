@@ -7,10 +7,10 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = FreePIP
 
-# Target the latest SDK available, with a minimum iOS version of 15.0
+# Target iOS 15.0+ (Standard for Rootless)
 TARGET = iphone:clang:latest:15.0
 
-# Rootless only supports 64-bit arm
+# Rootless architectures
 ARCHS = arm64 arm64e
 
 FreePIP_FILES = Tweak.x

@@ -2,8 +2,8 @@
 @end
 
 @interface SBPIPInteractionController : NSObject
-@property (nonatomic, readonly) UIView *targetView; // iOS 15+ property
--(UIView *)targetView; // Fallback accessor
+@property (nonatomic, readonly) UIView *targetView; // iOS 15+
+-(UIView *)targetView; // Fallback
 -(void)handlePanGesture:(UIPanGestureRecognizer *)arg1;
 -(void)handlePinchGesture:(UIPinchGestureRecognizer *)arg1;
 -(void)handleRotationGesture:(UIRotationGestureRecognizer *)arg1;
