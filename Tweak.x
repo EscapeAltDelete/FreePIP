@@ -158,4 +158,3 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
         %init(SBPIPInteractionHooks);
     }
 }
-```[[3](https://www.google.com/url?sa=E&q=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fgrounding-api-redirect%2FAUZIYQGXGO8WyAHyTKgXYBBE31GZ-RI7-jy_8WYLVYn4eHBuNN4ZEkqsJ4CapAFaLWJMqWu1HND-vT7CbtJkVlDU1arbdLxeXCCPYRzp8DxLDNEqc0i5IX3_-17hZi7BiWorM1LTDGgwUMT5FoFl0iLRBWAEzRn20QGW9qsOw2KyC84Abl2LBxMEki6-yrkKAPHfHqoGqmWFp4FIg4yDtw%3D%3D)]

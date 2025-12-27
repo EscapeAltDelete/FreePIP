@@ -8,7 +8,8 @@ on:
 jobs:
   build:
     name: Build Rootless
-    # MUST use ubuntu-22.04 because 'libtinfo5' was removed in ubuntu-24.04
+    # ubuntu-22.04 is required because recent Theos toolchains depend on libtinfo5
+    # which was removed in ubuntu-24.04
     runs-on: ubuntu-22.04
     
     steps:
@@ -24,11 +25,8 @@ jobs:
 
       - name: Build Package
         run: |
-          # Ensure THEOS env var is set correctly for the local action install
-          export THEOS=$GITHUB_WORKSPACE/theos
-          
           make clean
-          # Build specifically for rootless (NathanLR/Dopamine)
+          # Force rootless scheme for NathanLR/Dopamine
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
 
       - name: Upload Artifact
