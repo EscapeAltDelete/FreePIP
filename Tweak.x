@@ -2,146 +2,164 @@
 #import <UIKit/UIKit.h>
 #import "Tweak.h"
 
-
-// How this tweak works
-
-// Originally, the PiP view is snapped to edges using NSLayoutConstraint.
-// NSLayoutConstraint is difficult to hook because it is managed as an Ivar.
-// Therefore, this tweak uses CGAffineTransform to unsnap it.
-// It's not a pretty fix and there must be a better way.
-// If you know a beautiful fix, please let me know.
-
-// iOS 13 - Tested on iX, iOS 13.7
-// iOS 14 - Tested on Simulator (not on real devices)
-
-
-// Ref: https://stackoverflow.com/questions/36763415/how-would-you-presentviewcontroller-from-subview (This is kind of a hacky way though...)
+// Helper to find parent view controller
 #define UIViewParentController(__view) ({ \
         UIResponder *__responder = __view; \
         while ([__responder isKindOfClass:[UIView class]]) \
         __responder = [__responder nextResponder]; \
         (UIViewController *)__responder; \
     })
-// End Ref
-
 
 static BOOL locked = NO;
 
+// Helper to get the content view across iOS versions
 static UIView *getContentView(SBPIPContainerViewController *self) {
-    if ([self respondsToSelector:@selector(pictureInPictureViewController)])
+    if ([self respondsToSelector:@selector(contentViewController)]) {
+        // iOS 15, 16, 17+
+        return self.contentViewController.view;
+    }
+    if ([self respondsToSelector:@selector(pictureInPictureViewController)]) {
+        // iOS 13, 14
         return self.pictureInPictureViewController.view;
-    return self.contentViewController.view;
+    }
+    return nil;
 }
 
+// Helper to get target view from InteractionController
+static UIView *getTargetView(SBPIPInteractionController *self, UIGestureRecognizer *sender) {
+    if ([self respondsToSelector:@selector(targetView)])
+        return [self targetView];
+    
+    // Fallback logic
+    return UIViewParentController(sender.view).view;
+}
+
+// Logic for transformations
+static void handlePan(UIView *view, UIPanGestureRecognizer *sender) {
+    CGPoint translation = [sender translationInView:view];
+    view.transform = CGAffineTransformTranslate(view.transform, translation.x, translation.y);
+    [sender setTranslation:CGPointZero inView:view];
+}
+
+static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
+    view.transform = CGAffineTransformScale(view.transform, sender.scale, sender.scale);
+    sender.scale = 1.0;
+}
+
+// --- Group: iOS 13 & Legacy / Fallback Container Logic ---
+%group SBPIPContainerHooks
 %hook SBPIPContainerViewController
+
 -(void)loadView {
     %orig;
-
-    UILongPressGestureRecognizer *longPressGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPressGesture:)];
-    [getContentView(self) addGestureRecognizer:longPressGesture];
-    [self setupBorder];
-}
-
-// iOS13
--(void)_handlePanGesture: (UIPanGestureRecognizer *)sender {
-    if(locked) %orig;
-    else if(sender.state == UIGestureRecognizerStateChanged) {
-        // Change the position of the view using CGAffineTransform
-        CGPoint translation = [sender translationInView:self.pictureInPictureViewController.view];
-        self.pictureInPictureViewController.view.transform = CGAffineTransformTranslate(self.pictureInPictureViewController.view.transform, translation.x, translation.y);
-        [sender setTranslation:CGPointZero inView: self.pictureInPictureViewController.view];
+    
+    UIView *targetView = getContentView(self);
+    if (targetView) {
+        UILongPressGestureRecognizer *longPressGesture = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPressGesture:)];
+        [targetView addGestureRecognizer:longPressGesture];
+        [self setupBorder];
     }
 }
+
+// iOS 13 Style (Underscored methods)
+-(void)_handlePanGesture:(UIPanGestureRecognizer *)sender {
+    if(locked) %orig;
+    else if(sender.state == UIGestureRecognizerStateChanged) {
+        UIView *view = getContentView(self);
+        if (view) handlePan(view, sender);
+    }
+}
+
 -(void)_handlePinchGesture:(UIPinchGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
-        // Change the scale of the view using CGAffineTransform
-        self.pictureInPictureViewController.view.transform = CGAffineTransformScale(self.pictureInPictureViewController.view.transform, sender.scale, sender.scale);
-        sender.scale = 1.0;
+        UIView *view = getContentView(self);
+        if (view) handlePinch(view, sender);
     }
 }
+
 -(void)_handleRotationGesture:(UIRotationGestureRecognizer *)sender {
-    // Rotation gesture do nothing (at least as far as I've tried)
-    // Prevent updating layout by rotation gesture
-    if(locked) %orig;
-}
--(void)setContentViewPadding:(UIEdgeInsets)arg1 animationDuration:(double)arg2 animationOptions:(unsigned long long)arg3 {
-    // Prevent updating padding when switching apps
     if(locked) %orig;
 }
 
-// iOS14
+// iOS 14+ Style (if Container handles it directly in newer iOS)
+-(void)handlePanGesture:(UIPanGestureRecognizer *)sender {
+    if(locked) %orig;
+    else if(sender.state == UIGestureRecognizerStateChanged) {
+        UIView *view = getContentView(self);
+        if (view) handlePan(view, sender);
+    }
+}
+
+-(void)setContentViewPadding:(UIEdgeInsets)arg1 animationDuration:(double)arg2 animationOptions:(unsigned long long)arg3 {
+    if(locked) %orig;
+}
+
 -(void)setContentViewPadding:(UIEdgeInsets)arg1 {
-    // Prevent updating padding when switching apps
     if(!locked) arg1 = UIEdgeInsetsZero;
     %orig(arg1);
 }
 
-// New methods for this tweak
 %new
--(void)handleLongPressGesture: (UILongPressGestureRecognizer *)sender {
+-(void)handleLongPressGesture:(UILongPressGestureRecognizer *)sender {
     if (sender.state != UIGestureRecognizerStateBegan) return;
-
-    locked = !locked; // Revert the value
-
+    locked = !locked; // Toggle
     [self setupBorder];
 }
 
 %new
 -(void)setupBorder {
     UIView *view = getContentView(self);
+    if (!view) return;
+    
     view.layer.borderWidth = 1.5;
-
     if(!locked) view.layer.borderColor = [UIColor clearColor].CGColor;
     else view.layer.borderColor = [UIColor redColor].CGColor;
 }
+
 %end
+%end // SBPIPContainerHooks
 
-static UIView *getTargetView(SBPIPInteractionController *self, UIGestureRecognizer *sender) {
-    if ([self respondsToSelector:@selector(targetView)])
-        return [self targetView];
-    return UIViewParentController(sender.view).view;
-}
 
-// iOS14+
-// Here is using the same logic as in iOS13, but there seems to be a better way.
+// --- Group: iOS 14, 15, 16, 17+ Interaction Controller ---
+%group SBPIPInteractionHooks
 %hook SBPIPInteractionController
--(void)handlePanGesture: (UIPanGestureRecognizer *)sender {
+
+-(void)handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
-        // Change the position of the view using CGAffineTransform
         UIView *view = getTargetView(self, sender);
-
-        CGPoint translation = [sender translationInView:view];
-        view.transform = CGAffineTransformTranslate(view.transform, translation.x, translation.y);
-        [sender setTranslation:CGPointZero inView: view];
+        if (view) handlePan(view, sender);
     }
-
 }
+
 -(void)handlePinchGesture:(UIPinchGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
-        // Change the scale of the view using CGAffineTransform
         UIView *view = getTargetView(self, sender);
-        view.transform = CGAffineTransformScale(view.transform, sender.scale, sender.scale);
-        sender.scale = 1.0;
+        if (view) handlePinch(view, sender);
     }
 }
+
 -(void)handleRotationGesture:(UIRotationGestureRecognizer *)sender {
-    // Rotation gesture do nothing (at least as far as I've tried)
-    // Prevent updating layout by rotation gesture
     if(locked) %orig;
 }
+
 %end
+%end // SBPIPInteractionHooks
 
 
 %ctor {
-    // Somehow, ifdef does not work here
-    #if TARGET_OS_SIMULATOR
-    NSLog(@"freepip - target is simulator");
-    #else
-    NSLog(@"frepip - target is a real device");
-    #endif
+    NSLog(@"[FreePIP] Loaded");
 
-    %init; // initialize the tweak
+    // Always init Container hooks as it handles loadView and borders
+    %init(SBPIPContainerHooks);
+
+    // Check if SBPIPInteractionController exists (iOS 14+)
+    if (objc_getClass("SBPIPInteractionController")) {
+        NSLog(@"[FreePIP] SBPIPInteractionController found, initializing interaction hooks");
+        %init(SBPIPInteractionHooks);
+    } else {
+        NSLog(@"[FreePIP] SBPIPInteractionController NOT found, relying on Container hooks");
+    }
 }

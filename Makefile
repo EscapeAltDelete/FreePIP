@@ -4,11 +4,13 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = FreePIP
 
+# Use latest SDK, target iOS 14.0 as minimum deployment for the update
+export TARGET = iphone:clang:latest:14.0
+
 ifeq ($(simulator),1)
-        export TARGET = simulator:clang:13.7:8.0 # It may be required to change here
-        ARCHS = x86_64
+	ARCHS = x86_64
 else
-		ARCHS = arm64 arm64e
+	ARCHS = arm64 arm64e
 endif
 
 FreePIP_FILES = Tweak.x
