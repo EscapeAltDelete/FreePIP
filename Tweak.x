@@ -1,6 +1,6 @@
 #import <UIKit/UIKit.h>
 
-// Minimal Interfaces for iOS 15+
+// Minimal Interfaces
 @interface SBPIPInteractionController : NSObject
 @property (nonatomic, readonly) UIView *targetView;
 @end
@@ -20,7 +20,7 @@ static BOOL isFree = YES;
     if (sender.state == UIGestureRecognizerStateChanged) {
         UIView *view = self.targetView;
         CGPoint trans = [sender translationInView:view];
-        // Direct transform application is more efficient than helper methods
+        // GPU-accelerated translation
         view.transform = CGAffineTransformTranslate(view.transform, trans.x, trans.y);
         [sender setTranslation:CGPointZero inView:view];
     }
@@ -32,13 +32,13 @@ static BOOL isFree = YES;
     if (sender.state == UIGestureRecognizerStateChanged) {
         UIView *view = self.targetView;
         CGFloat scale = sender.scale;
+        // GPU-accelerated scaling
         view.transform = CGAffineTransformScale(view.transform, scale, scale);
         sender.scale = 1.0;
     }
 }
 
 - (void)handleRotationGesture:(UIRotationGestureRecognizer *)sender {
-    // Disable rotation in Free mode to prevent logic conflicts
     if (!isFree) %orig;
 }
 
@@ -48,7 +48,7 @@ static BOOL isFree = YES;
 
 - (void)loadView {
     %orig;
-    // Inject Toggle Gesture directly
+    // Inject Toggle Gesture
     UIView *view = self.contentViewController.view;
     if (view) {
         UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(fp_toggle:)];
@@ -56,7 +56,7 @@ static BOOL isFree = YES;
     }
 }
 
-// Block system snapping animations when in Free mode
+// Disable system snapping animations
 - (void)setContentViewPadding:(UIEdgeInsets)padding animationDuration:(double)duration animationOptions:(NSUInteger)options {
     if (!isFree) %orig;
 }
@@ -68,10 +68,9 @@ static BOOL isFree = YES;
 
 %new
 - (void)fp_toggle:(UILongPressGestureRecognizer *)sender {
+    // Pure boolean toggle. No haptics, no visuals, no overhead.
     if (sender.state == UIGestureRecognizerStateBegan) {
         isFree = !isFree;
-        // Haptic feedback is cheaper/cleaner than drawing borders
-        [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium] impactOccurred];
     }
 }
 
