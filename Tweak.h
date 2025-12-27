@@ -21,6 +21,7 @@
 -(void)_handlePinchGesture:(UIPinchGestureRecognizer *)arg1;
 -(void)handlePanGesture:(UIPanGestureRecognizer *)arg1; 
 
+// Custom methods injected by Tweak
 -(void)setupBorder;
 -(void)handleLongPressGesture:(UILongPressGestureRecognizer *)sender;
 @end
