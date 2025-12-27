@@ -1,4 +1,4 @@
-# Enforce Rootless Scheme
+# Enforce Rootless Scheme for NathanLR
 THEOS_PACKAGE_SCHEME = rootless
 
 INSTALL_TARGET_PROCESSES = SpringBoard

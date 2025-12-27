@@ -11,6 +11,7 @@
 
 static BOOL locked = NO;
 
+// Safely get content view on any iOS version
 static UIView *getContentView(SBPIPContainerViewController *self) {
     if ([self respondsToSelector:@selector(contentViewController)]) {
         return self.contentViewController.view;
@@ -21,12 +22,14 @@ static UIView *getContentView(SBPIPContainerViewController *self) {
     return nil;
 }
 
+// Safely get target view from interaction controller
 static UIView *getTargetView(SBPIPInteractionController *self, UIGestureRecognizer *sender) {
     if ([self respondsToSelector:@selector(targetView)])
         return [self targetView];
     return UIViewParentController(sender.view).view;
 }
 
+// Logic for transformations
 static void handlePan(UIView *view, UIPanGestureRecognizer *sender) {
     CGPoint translation = [sender translationInView:view];
     view.transform = CGAffineTransformTranslate(view.transform, translation.x, translation.y);
@@ -38,7 +41,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     sender.scale = 1.0;
 }
 
-// --- Group: Container Hooks ---
+// --- Group: Container Hooks (Basic UI setup) ---
 %group SBPIPContainerHooks
 %hook SBPIPContainerViewController
 
@@ -52,7 +55,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     }
 }
 
-// iOS 13/Legacy
+// iOS 13/Legacy Style Gestures
 -(void)_handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
@@ -73,7 +76,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     if(locked) %orig;
 }
 
-// iOS 14+ / 17
+// iOS 14+ / 17 Potential Style
 -(void)handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
@@ -111,7 +114,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
 %end 
 
 
-// --- Group: Interaction Hooks ---
+// --- Group: Interaction Hooks (Primary gesture handler for modern iOS) ---
 %group SBPIPInteractionHooks
 %hook SBPIPInteractionController
 
@@ -139,10 +142,12 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
 
 
 %ctor {
+    // Always initialize container hooks for visual setup
     %init(SBPIPContainerHooks);
 
+    // Only hook interaction controller if it exists (iOS 14-17 check)
     if (objc_getClass("SBPIPInteractionController")) {
         %init(SBPIPInteractionHooks);
     }
 }
-```[[1](https://www.google.com/url?sa=E&q=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fgrounding-api-redirect%2FAUZIYQFXVoIqHxEQTa9FjmnrFd0goe5Mwcc38JEoPckPZejVrJscIZimUklgv6vAL1TU9Ecau5PgtEvZ9vY7ZFHnmgSVw4KgBlhyGa6PHkgBKkptk6pVKOQSbdCk7trKkI9re-88_JL-R7_jVrbjKNQgtAPeqvd5)]
+```[[1](https://www.google.com/url?sa=E&q=https%3A%2F%2Fvertexaisearch.cloud.google.com%2Fgrounding-api-redirect%2FAUZIYQHW-bSfoYd5QWeeKTUHBukDuovamceJEV7pp0ZQD8fPs89Ek4jmtTADpfROk2Xw4c9xTxGWGVDO0KyrIOgKYpiRo4HHQIVVnCbFHQ-NNMZpL_fiMlu4l4k-GXfAGUmsRIu3_-Q4TxzsBRw4q17xCrBkeaLXP7mDV4gL3g8%3D)]

@@ -26,8 +26,8 @@ jobs:
           # Create toolchain directory
           mkdir -p theos/toolchain/linux/iphone
           
-          # Download Sam Bingner's iOS Toolchain for Linux (Standard for Theos)
-          curl -L -o toolchain.tar.xz https://github.com/sbingner/llvm-project/releases/download/v10.0.0-1/linux-ios-arm64-10.0.0.tar.xz
+          # Download L1ghtmann's Toolchain (Reliable for GitHub Actions/Linux x86_64)
+          curl -L -o toolchain.tar.xz https://github.com/L1ghtmann/llvm-project/releases/download/20240329/iOSToolchain-x86_64.tar.xz
           
           # Extract it
           tar -xf toolchain.tar.xz -C theos/toolchain/linux/iphone --strip-components=1
@@ -36,7 +36,7 @@ jobs:
       - name: Download iOS 16.5 SDK
         run: |
           mkdir -p theos/sdks
-          # Sparse checkout to save time/bandwidth (only downloads 16.5)
+          # Clone ONLY the iOS 16.5 SDK to save time
           git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git sdk_tmp
           cd sdk_tmp
           git sparse-checkout set iPhoneOS16.5.sdk
