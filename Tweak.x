@@ -30,10 +30,11 @@ static UIView *getTargetView(SBPIPInteractionController *self, UIGestureRecogniz
     if ([self respondsToSelector:@selector(targetView)])
         return [self targetView];
     
+    // Fallback logic
     return UIViewParentController(sender.view).view;
 }
 
-// Shared Logic
+// Logic for transformations
 static void handlePan(UIView *view, UIPanGestureRecognizer *sender) {
     CGPoint translation = [sender translationInView:view];
     view.transform = CGAffineTransformTranslate(view.transform, translation.x, translation.y);
@@ -60,7 +61,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     }
 }
 
-// iOS 13/Legacy Style
+// iOS 13 Style
 -(void)_handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
@@ -81,7 +82,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
     if(locked) %orig;
 }
 
-// iOS 14+ / Fallback Style
+// iOS 14+ Style
 -(void)handlePanGesture:(UIPanGestureRecognizer *)sender {
     if(locked) %orig;
     else if(sender.state == UIGestureRecognizerStateChanged) {
@@ -120,7 +121,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
 %end // SBPIPContainerHooks
 
 
-// --- Group: Interaction Hooks (iOS 14-17 standard) ---
+// --- Group: Interaction Hooks (iOS 14-17) ---
 %group SBPIPInteractionHooks
 %hook SBPIPInteractionController
 
@@ -151,7 +152,7 @@ static void handlePinch(UIView *view, UIPinchGestureRecognizer *sender) {
 %ctor {
     %init(SBPIPContainerHooks);
 
-    // Only hook interaction controller if it exists (runtime check)
+    // Runtime check: does SBPIPInteractionController exist?
     if (objc_getClass("SBPIPInteractionController")) {
         %init(SBPIPInteractionHooks);
     }

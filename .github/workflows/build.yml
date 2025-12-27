@@ -15,45 +15,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Theos
-        uses: actions/checkout@v4
+        uses: Randomblock1/theos-action@v1
         with:
-          repository: theos/theos
-          path: theos
-          submodules: recursive
-
-      - name: Download iOS Toolchain
-        run: |
-          mkdir -p theos/toolchain/linux/iphone
-          
-          # Use Kabir Oberai's reliable redirector for the Linux toolchain
-          # This automatically points to a working x86_64 toolchain for iOS
-          curl -L "https://kabiroberai.com/toolchain/download.php?toolchain=ios-linux" -o toolchain.tar.gz
-          
-          # Extract it
-          tar -xf toolchain.tar.gz -C theos/toolchain/linux/iphone --strip-components=1
-          rm toolchain.tar.gz
-
-      - name: Download iOS 16.5 SDK
-        run: |
-          mkdir -p theos/sdks
-          # Sparse checkout to save time and bandwidth
-          git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git sdk_tmp
-          cd sdk_tmp
-          git sparse-checkout set iPhoneOS16.5.sdk
-          mv iPhoneOS16.5.sdk ../theos/sdks/
-          cd ..
-          rm -rf sdk_tmp
-
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y make perl xz-utils
+          # This action automatically sets up the Toolchain and SDKs
+          theos-src: 'https://github.com/theos/theos'
+          theos-sdks: 'https://github.com/theos/sdks'
+          theos-sdks-branch: 'master'
 
       - name: Build Package
         run: |
-          export THEOS=$PWD/theos
+          # Clean previous builds
           make clean
-          # Build strictly for rootless
+          # Build specifically for rootless (NathanLR/Dopamine)
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
 
       - name: Upload Artifact
