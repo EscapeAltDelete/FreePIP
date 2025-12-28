@@ -1,8 +1,8 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
+#import <string.h> // Required for strcmp
 
 // --- Configuration ---
-// Hardcoded 'Yes' to ensure it works without user interaction
 static BOOL isUnlimited = YES;
 
 // --- Interface Definitions ---
@@ -22,13 +22,12 @@ static BOOL isUnlimited = YES;
 
 %hook PGPictureInPictureViewController
 
-// This is the property from your screenshot.
-// We override it to allow the content to shrink way down (e.g. 10pts wide).
+// Override the content width limit
 - (CGFloat)preferredMinimumWidth {
     return isUnlimited ? 10.0 : %orig;
 }
 
-// Override these to ensure the app doesn't send restrictive constraints to the system
+// Override sizing constraints
 - (CGSize)minimumStashTabSize {
     return isUnlimited ? CGSizeMake(10, 10) : %orig;
 }
@@ -60,7 +59,6 @@ static BOOL isUnlimited = YES;
 - (void)_updateScaleLimits {
     %orig;
     if (isUnlimited) {
-        // Safely force our limits
         @try {
             [self setValue:@(0.1) forKey:@"minimumScale"];
             [self setValue:@(5.0) forKey:@"maximumScale"];
@@ -73,22 +71,24 @@ static BOOL isUnlimited = YES;
 
 
 // ============================================================================
-// INITIALIZATION (Crash Protection)
+// INITIALIZATION (Crash Fixed)
 // ============================================================================
 %ctor {
     @autoreleasepool {
-        NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+        // Use C-string conversion to avoid 'isEqualToString:' crash with uninitialized string literals
+        const char *bundleID = [[[NSBundle mainBundle] bundleIdentifier] UTF8String];
 
-        // 1. SpringBoard Logic
-        if ([bundleID isEqualToString:@"com.apple.springboard"]) {
-            %init(SpringBoardHooks);
-        }
-        // 2. App Logic (ONLY if the class exists)
-        else {
-            // Check if the Pegasus framework class is actually loaded in this process.
-            // If not, we skip initialization to prevent crashes in random apps (Mail, Calculator, etc).
-            if (objc_getClass("PGPictureInPictureViewController")) {
-                %init(PegasusHooks);
+        if (bundleID) {
+            // 1. SpringBoard Logic
+            if (strcmp(bundleID, "com.apple.springboard") == 0) {
+                %init(SpringBoardHooks);
+            }
+            // 2. App Logic (YouTube, Safari, etc.)
+            else {
+                // Only init if the Pegasus class exists (Safety check)
+                if (objc_getClass("PGPictureInPictureViewController")) {
+                    %init(PegasusHooks);
+                }
             }
         }
     }
