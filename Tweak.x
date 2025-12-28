@@ -1,33 +1,36 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
-#import <string.h> // Required for strcmp
+#import <string.h>
+#import <dlfcn.h> // Required for dlopen
 
-// --- Configuration ---
+// --- State ---
 static BOOL isUnlimited = YES;
 
-// --- Interface Definitions ---
+// --- Interfaces ---
 @interface PGPictureInPictureViewController : UIViewController
 @property (nonatomic, assign) CGFloat preferredMinimumWidth;
 @end
 
 @interface SBPIPInteractionController : NSObject
-@property (nonatomic, assign) double minimumScale;
-@property (nonatomic, assign) double maximumScale;
 @end
 
+// --- Helper to log (Debugging only, doesn't affect performance) ---
+static void FPLog(NSString *msg) {
+    NSLog(@"[FreePIP] %@", msg);
+}
+
 // ============================================================================
-// GROUP 1: Pegasus Hooks (Runs inside Apps like YouTube/Safari)
+// GROUP 1: Pegasus Hooks (YouTube, Safari, etc.)
 // ============================================================================
 %group PegasusHooks
 
+// 1. Hook the Controller (Your screenshot #13)
 %hook PGPictureInPictureViewController
 
-// Override the content width limit
 - (CGFloat)preferredMinimumWidth {
-    return isUnlimited ? 10.0 : %orig;
+    return isUnlimited ? 20.0 : %orig;
 }
 
-// Override sizing constraints
 - (CGSize)minimumStashTabSize {
     return isUnlimited ? CGSizeMake(10, 10) : %orig;
 }
@@ -36,32 +39,46 @@ static BOOL isUnlimited = YES;
     return isUnlimited ? CGSizeMake(20, 20) : %orig;
 }
 
+// 2. Hook the Settings Object (Your screenshot #17)
+// This object often holds the hard limits for the physics engine
+%hook PGMobilePIPSettings
+
+- (double)minimumScale {
+    return isUnlimited ? 0.01 : %orig;
+}
+
+- (double)maximumScale {
+    return isUnlimited ? 10.0 : %orig;
+}
+
+%end // PGMobilePIPSettings
+
 %end
 %end // PegasusHooks
 
 
 // ============================================================================
-// GROUP 2: SpringBoard Hooks (Runs inside System)
+// GROUP 2: SpringBoard Hooks (System Physics)
 // ============================================================================
 %group SpringBoardHooks
 
 %hook SBPIPInteractionController
 
 - (double)minimumScale {
-    return isUnlimited ? 0.1 : %orig;
+    return isUnlimited ? 0.01 : %orig;
 }
 
 - (double)maximumScale {
-    return isUnlimited ? 5.0 : %orig;
+    return isUnlimited ? 10.0 : %orig;
 }
 
-// iOS 17 specific: Intercept dynamic limit updates
+// iOS 17 fallback: force values if system tries to recalculate them
 - (void)_updateScaleLimits {
     %orig;
     if (isUnlimited) {
         @try {
-            [self setValue:@(0.1) forKey:@"minimumScale"];
-            [self setValue:@(5.0) forKey:@"maximumScale"];
+            [self setValue:@(0.01) forKey:@"minimumScale"];
+            [self setValue:@(10.0) forKey:@"maximumScale"];
         } @catch (NSException *e) {}
     }
 }
@@ -71,24 +88,28 @@ static BOOL isUnlimited = YES;
 
 
 // ============================================================================
-// INITIALIZATION (Crash Fixed)
+// INITIALIZATION
 // ============================================================================
 %ctor {
     @autoreleasepool {
-        // Use C-string conversion to avoid 'isEqualToString:' crash with uninitialized string literals
         const char *bundleID = [[[NSBundle mainBundle] bundleIdentifier] UTF8String];
-
+        
         if (bundleID) {
-            // 1. SpringBoard Logic
+            // 1. SpringBoard: Init immediately
             if (strcmp(bundleID, "com.apple.springboard") == 0) {
                 %init(SpringBoardHooks);
             }
-            // 2. App Logic (YouTube, Safari, etc.)
+            // 2. Apps (YouTube, etc.): Force load framework, then init
             else {
-                // Only init if the Pegasus class exists (Safety check)
+                // Force load Pegasus so we can hook it even if the app hasn't started a video yet
+                void *handle = dlopen("/System/Library/PrivateFrameworks/Pegasus.framework/Pegasus", RTLD_NOW);
+                
+                // Only init if the class exists (it should now, unless the iOS version is very old)
                 if (objc_getClass("PGPictureInPictureViewController")) {
                     %init(PegasusHooks);
                 }
+                
+                if (handle) dlclose(handle); // Clean up handle, framework stays loaded
             }
         }
     }
