@@ -14,17 +14,12 @@ static BOOL isUnlimited = YES;
 @interface SBPIPInteractionController : NSObject
 @end
 
-// --- Helper to log (Debugging only, doesn't affect performance) ---
-static void FPLog(NSString *msg) {
-    NSLog(@"[FreePIP] %@", msg);
-}
-
 // ============================================================================
 // GROUP 1: Pegasus Hooks (YouTube, Safari, etc.)
 // ============================================================================
 %group PegasusHooks
 
-// 1. Hook the Controller (Your screenshot #13)
+// 1. Hook the Controller
 %hook PGPictureInPictureViewController
 
 - (CGFloat)preferredMinimumWidth {
@@ -39,8 +34,9 @@ static void FPLog(NSString *msg) {
     return isUnlimited ? CGSizeMake(20, 20) : %orig;
 }
 
-// 2. Hook the Settings Object (Your screenshot #17)
-// This object often holds the hard limits for the physics engine
+%end // End PGPictureInPictureViewController
+
+// 2. Hook the Settings Object
 %hook PGMobilePIPSettings
 
 - (double)minimumScale {
@@ -51,10 +47,9 @@ static void FPLog(NSString *msg) {
     return isUnlimited ? 10.0 : %orig;
 }
 
-%end // PGMobilePIPSettings
+%end // End PGMobilePIPSettings
 
-%end
-%end // PegasusHooks
+%end // End Group PegasusHooks
 
 
 // ============================================================================
@@ -84,7 +79,7 @@ static void FPLog(NSString *msg) {
 }
 
 %end
-%end // SpringBoardHooks
+%end // End Group SpringBoardHooks
 
 
 // ============================================================================
@@ -104,12 +99,12 @@ static void FPLog(NSString *msg) {
                 // Force load Pegasus so we can hook it even if the app hasn't started a video yet
                 void *handle = dlopen("/System/Library/PrivateFrameworks/Pegasus.framework/Pegasus", RTLD_NOW);
                 
-                // Only init if the class exists (it should now, unless the iOS version is very old)
+                // Only init if the class exists
                 if (objc_getClass("PGPictureInPictureViewController")) {
                     %init(PegasusHooks);
                 }
                 
-                if (handle) dlclose(handle); // Clean up handle, framework stays loaded
+                // We keep the handle open to ensure the framework stays resident
             }
         }
     }
