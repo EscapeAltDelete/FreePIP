@@ -1,10 +1,13 @@
 #import <UIKit/UIKit.h>
 
-// --- Interface Definitions ---
+// --- Interfaces ---
 
 @interface SBPIPInteractionController : NSObject
-@property (assign, nonatomic) double minimumScale;
-@property (assign, nonatomic) double maximumScale;
+@property (nonatomic, assign) double minimumScale;
+@property (nonatomic, assign) double maximumScale;
+// iOS 17 specific internal property guesses
+@property (nonatomic, assign) double _minimumScale; 
+@property (nonatomic, assign) double _maximumScale;
 @end
 
 @interface SBPIPContainerViewController : UIViewController
@@ -12,26 +15,45 @@
 @end
 
 // --- State Tracking ---
-// Default to unlocked size limits
-static BOOL isUnlimited = YES;
+static BOOL isUnlimited = YES; // Default to Enabled
 
 // --- Hooks ---
 
 %hook SBPIPInteractionController
 
-// Override the minimum allowed size (0.1 = 10% of original size)
-- (double)minimumScale {
-    if (isUnlimited) {
-        return 0.15; 
-    }
-    return %orig;
+// 1. Hook Setters: This forces the internal ivars to hold our values
+- (void)setMinimumScale:(double)scale {
+    if (isUnlimited) scale = 0.15; // 15% size
+    %orig(scale);
 }
 
-// Override the maximum allowed size (5.0 = 500% of original size)
+- (void)setMaximumScale:(double)scale {
+    if (isUnlimited) scale = 5.0; // 500% size
+    %orig(scale);
+}
+
+// 2. Hook Getters: Just in case something reads the property
+- (double)minimumScale {
+    return isUnlimited ? 0.15 : %orig;
+}
+
 - (double)maximumScale {
-    if (isUnlimited) {
-        return 5.0;
-    }
+    return isUnlimited ? 5.0 : %orig;
+}
+
+// 3. Hook Private Methods (The "Real" Logic often lives here)
+// These methods are often used by the gesture recognizer directly
+- (double)_minimumScale {
+    return isUnlimited ? 0.15 : %orig;
+}
+
+- (double)_maximumScale {
+    return isUnlimited ? 5.0 : %orig;
+}
+
+// Some iOS versions use this specifically for pinch gesture limits
+- (double)_proratedScaleForScale:(double)scale {
+    if (isUnlimited) return scale; // Bypass prorating calculation
     return %orig;
 }
 
@@ -42,12 +64,12 @@ static BOOL isUnlimited = YES;
 - (void)loadView {
     %orig;
     
-    // Inject the Toggle Gesture (Long Press) onto the PiP window
-    // This allows you to revert to "Apple Stock Sizes" if needed on the fly
+    // Inject Toggle Gesture (Long Press)
+    // Allows switching back to stock limits instantly if needed
     UIView *view = self.contentViewController.view;
     if (view) {
         UILongPressGestureRecognizer *togglePress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(fp_toggleState:)];
-        togglePress.minimumPressDuration = 0.8; // Reduce accidental triggers
+        togglePress.minimumPressDuration = 1.0;
         [view addGestureRecognizer:togglePress];
     }
 }
@@ -57,9 +79,10 @@ static BOOL isUnlimited = YES;
     if (sender.state == UIGestureRecognizerStateBegan) {
         isUnlimited = !isUnlimited;
         
-        // Optional: A visual indicator could go here, but per request, 
-        // we keep it pure. The user will know it's working because 
-        // they can suddenly pinch it larger/smaller.
+        // Force the Interaction Controller to re-read the values
+        // We find the controller by traversing the child/parent chain or via singleton logic if available.
+        // Since we can't easily access the specific interaction controller instance here without extra overhead,
+        // the user will simply see the effect on the NEXT interaction (pinch).
     }
 }
 
