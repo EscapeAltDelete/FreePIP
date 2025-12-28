@@ -1,7 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <string.h>
-#import <dlfcn.h> // Required for dlopen
+#import <dlfcn.h>
 
 // --- State ---
 static BOOL isUnlimited = YES;
@@ -97,14 +97,13 @@ static BOOL isUnlimited = YES;
             // 2. Apps (YouTube, etc.): Force load framework, then init
             else {
                 // Force load Pegasus so we can hook it even if the app hasn't started a video yet
-                void *handle = dlopen("/System/Library/PrivateFrameworks/Pegasus.framework/Pegasus", RTLD_NOW);
+                // We call dlopen but don't store the result to avoid "unused variable" warnings
+                dlopen("/System/Library/PrivateFrameworks/Pegasus.framework/Pegasus", RTLD_NOW);
                 
                 // Only init if the class exists
                 if (objc_getClass("PGPictureInPictureViewController")) {
                     %init(PegasusHooks);
                 }
-                
-                // We keep the handle open to ensure the framework stays resident
             }
         }
     }
