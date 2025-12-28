@@ -1,55 +1,40 @@
 #import <UIKit/UIKit.h>
+#import <objc/runtime.h>
 
-// --- State Tracking (Global) ---
+// --- Configuration ---
+// Hardcoded 'Yes' to ensure it works without user interaction
 static BOOL isUnlimited = YES;
 
-// --- Interface: Pegasus (Inside App) ---
+// --- Interface Definitions ---
 @interface PGPictureInPictureViewController : UIViewController
-@property (nonatomic, assign) CGFloat preferredMinimumWidth; // The property from your screenshot
+@property (nonatomic, assign) CGFloat preferredMinimumWidth;
 @end
 
-// --- Interface: SpringBoard (System) ---
 @interface SBPIPInteractionController : NSObject
 @property (nonatomic, assign) double minimumScale;
 @property (nonatomic, assign) double maximumScale;
 @end
 
 // ============================================================================
-// GROUP 1: The App Hook (Runs in YouTube, Safari, etc.)
-// This overrides the "Content Preference" found in your screenshot.
+// GROUP 1: Pegasus Hooks (Runs inside Apps like YouTube/Safari)
 // ============================================================================
 %group PegasusHooks
 
 %hook PGPictureInPictureViewController
 
-// Override the read-only property getter
+// This is the property from your screenshot.
+// We override it to allow the content to shrink way down (e.g. 10pts wide).
 - (CGFloat)preferredMinimumWidth {
-    if (isUnlimited) {
-        // Return 32.0 instead of the default 192.0 shown in your screenshot.
-        // This tells the system "I can shrink very small".
-        return 32.0;
-    }
-    return %orig;
+    return isUnlimited ? 10.0 : %orig;
 }
 
-- (void)viewDidLoad {
-    %orig;
-    // Inject the Toggle Gesture (Long Press)
-    if (self.view) {
-        UILongPressGestureRecognizer *toggle = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(fp_toggle:)];
-        toggle.minimumPressDuration = 0.8;
-        [self.view addGestureRecognizer:toggle];
-    }
+// Override these to ensure the app doesn't send restrictive constraints to the system
+- (CGSize)minimumStashTabSize {
+    return isUnlimited ? CGSizeMake(10, 10) : %orig;
 }
 
-%new
-- (void)fp_toggle:(UILongPressGestureRecognizer *)sender {
-    if (sender.state == UIGestureRecognizerStateBegan) {
-        isUnlimited = !isUnlimited;
-        // Force layout update to apply changes immediately
-        [self.view setNeedsLayout];
-        [self.view layoutIfNeeded];
-    }
+- (CGSize)microPIPSize {
+    return isUnlimited ? CGSizeMake(20, 20) : %orig;
 }
 
 %end
@@ -57,28 +42,28 @@ static BOOL isUnlimited = YES;
 
 
 // ============================================================================
-// GROUP 2: The SpringBoard Hook (Runs in System)
-// This overrides the "Physics Engine" limits.
+// GROUP 2: SpringBoard Hooks (Runs inside System)
 // ============================================================================
 %group SpringBoardHooks
 
 %hook SBPIPInteractionController
 
 - (double)minimumScale {
-    return isUnlimited ? 0.10 : %orig;
+    return isUnlimited ? 0.1 : %orig;
 }
 
 - (double)maximumScale {
-    return isUnlimited ? 5.00 : %orig;
+    return isUnlimited ? 5.0 : %orig;
 }
 
-// iOS 17 fallback: Force-set limits whenever the system calculates them
+// iOS 17 specific: Intercept dynamic limit updates
 - (void)_updateScaleLimits {
     %orig;
     if (isUnlimited) {
+        // Safely force our limits
         @try {
-            [self setValue:@(0.10) forKey:@"minimumScale"];
-            [self setValue:@(5.00) forKey:@"maximumScale"];
+            [self setValue:@(0.1) forKey:@"minimumScale"];
+            [self setValue:@(5.0) forKey:@"maximumScale"];
         } @catch (NSException *e) {}
     }
 }
@@ -88,17 +73,23 @@ static BOOL isUnlimited = YES;
 
 
 // ============================================================================
-// INITIALIZATION
+// INITIALIZATION (Crash Protection)
 // ============================================================================
 %ctor {
-    // Determine where we are running and init the correct hooks
-    NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+    @autoreleasepool {
+        NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
 
-    if ([bundleID isEqualToString:@"com.apple.springboard"]) {
-        %init(SpringBoardHooks);
-    } else {
-        // We are in an App (YouTube, Safari, etc.)
-        // Only init if the Pegasus framework is present
-        %init(PegasusHooks);
+        // 1. SpringBoard Logic
+        if ([bundleID isEqualToString:@"com.apple.springboard"]) {
+            %init(SpringBoardHooks);
+        }
+        // 2. App Logic (ONLY if the class exists)
+        else {
+            // Check if the Pegasus framework class is actually loaded in this process.
+            // If not, we skip initialization to prevent crashes in random apps (Mail, Calculator, etc).
+            if (objc_getClass("PGPictureInPictureViewController")) {
+                %init(PegasusHooks);
+            }
+        }
     }
 }
