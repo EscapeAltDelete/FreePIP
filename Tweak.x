@@ -1,45 +1,38 @@
 #import <UIKit/UIKit.h>
 
-// Minimal Interfaces
+// --- Interface Definitions ---
+
 @interface SBPIPInteractionController : NSObject
-@property (nonatomic, readonly) UIView *targetView;
+@property (assign, nonatomic) double minimumScale;
+@property (assign, nonatomic) double maximumScale;
 @end
 
 @interface SBPIPContainerViewController : UIViewController
 @property (nonatomic, readonly) UIViewController *contentViewController;
 @end
 
-// State Tracking (Defaults to Free mode)
-static BOOL isFree = YES;
+// --- State Tracking ---
+// Default to unlocked size limits
+static BOOL isUnlimited = YES;
+
+// --- Hooks ---
 
 %hook SBPIPInteractionController
 
-- (void)handlePanGesture:(UIPanGestureRecognizer *)sender {
-    if (!isFree) { %orig; return; }
-
-    if (sender.state == UIGestureRecognizerStateChanged) {
-        UIView *view = self.targetView;
-        CGPoint trans = [sender translationInView:view];
-        // GPU-accelerated translation
-        view.transform = CGAffineTransformTranslate(view.transform, trans.x, trans.y);
-        [sender setTranslation:CGPointZero inView:view];
+// Override the minimum allowed size (0.1 = 10% of original size)
+- (double)minimumScale {
+    if (isUnlimited) {
+        return 0.15; 
     }
+    return %orig;
 }
 
-- (void)handlePinchGesture:(UIPinchGestureRecognizer *)sender {
-    if (!isFree) { %orig; return; }
-
-    if (sender.state == UIGestureRecognizerStateChanged) {
-        UIView *view = self.targetView;
-        CGFloat scale = sender.scale;
-        // GPU-accelerated scaling
-        view.transform = CGAffineTransformScale(view.transform, scale, scale);
-        sender.scale = 1.0;
+// Override the maximum allowed size (5.0 = 500% of original size)
+- (double)maximumScale {
+    if (isUnlimited) {
+        return 5.0;
     }
-}
-
-- (void)handleRotationGesture:(UIRotationGestureRecognizer *)sender {
-    if (!isFree) %orig;
+    return %orig;
 }
 
 %end
@@ -48,29 +41,25 @@ static BOOL isFree = YES;
 
 - (void)loadView {
     %orig;
-    // Inject Toggle Gesture
+    
+    // Inject the Toggle Gesture (Long Press) onto the PiP window
+    // This allows you to revert to "Apple Stock Sizes" if needed on the fly
     UIView *view = self.contentViewController.view;
     if (view) {
-        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(fp_toggle:)];
-        [view addGestureRecognizer:longPress];
+        UILongPressGestureRecognizer *togglePress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(fp_toggleState:)];
+        togglePress.minimumPressDuration = 0.8; // Reduce accidental triggers
+        [view addGestureRecognizer:togglePress];
     }
 }
 
-// Disable system snapping animations
-- (void)setContentViewPadding:(UIEdgeInsets)padding animationDuration:(double)duration animationOptions:(NSUInteger)options {
-    if (!isFree) %orig;
-}
-
-- (void)setContentViewPadding:(UIEdgeInsets)padding {
-    if (isFree) padding = UIEdgeInsetsZero;
-    %orig(padding);
-}
-
 %new
-- (void)fp_toggle:(UILongPressGestureRecognizer *)sender {
-    // Pure boolean toggle. No haptics, no visuals, no overhead.
+- (void)fp_toggleState:(UILongPressGestureRecognizer *)sender {
     if (sender.state == UIGestureRecognizerStateBegan) {
-        isFree = !isFree;
+        isUnlimited = !isUnlimited;
+        
+        // Optional: A visual indicator could go here, but per request, 
+        // we keep it pure. The user will know it's working because 
+        // they can suddenly pinch it larger/smaller.
     }
 }
 
