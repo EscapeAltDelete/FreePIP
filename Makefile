@@ -4,9 +4,10 @@ THEOS_PACKAGE_SCHEME = rootless
 
 DEBUG = 0
 FINALPACKAGE = 1
-GO_EASY_ON_ME = 0
 
-INSTALL_TARGET_PROCESSES = SpringBoard
+# Inject into everything (SpringBoard + Apps like YouTube/Safari)
+# This is required because PGPictureInPictureViewController lives in the App.
+FILTER_BUNDLES = com.apple.springboard com.apple.UIKit
 
 include $(THEOS)/makefiles/common.mk
 
